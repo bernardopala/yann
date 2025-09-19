@@ -1,2 +1,2 @@
 # yann
-YANN - Yet Another Neural Network
+YANN - Yet Another Neural Network (NumPy based)
