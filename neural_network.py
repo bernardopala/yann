@@ -1,30 +1,19 @@
 import numpy as np
 
-from activation_functions import relu, sigmoid, linear, tanh
+from activation_functions import Activation
 
 
 class NeuralNetworkLayer:
-    def __init__(self, num_of_inputs: int, num_of_outputs: int, activation_spec, rng: np.random.Generator) -> None:
+    def __init__(self, num_of_inputs: int, num_of_outputs: int, activation: Activation,
+                 rng: np.random.Generator) -> None:
         self.inputs = np.zeros(num_of_inputs, dtype=np.float32)
         self.weights = np.zeros((num_of_inputs, num_of_outputs), dtype=np.float32)
         self.biases = np.zeros(num_of_outputs, dtype=np.float32)
         self.weighted_sums = np.zeros(num_of_outputs, dtype=np.float32)
-
-        if isinstance(activation_spec, list):
-            if len(activation_spec) != num_of_outputs:
-                raise ValueError("Number of activation functions must match number of neurons")
-
-            self.activation_functions = activation_spec
-        else:
-            self.activation_functions = [activation_spec for _ in range(num_of_outputs)]
-
+        self.activation = activation
         self.outputs = np.zeros(num_of_outputs, dtype=np.float32)
 
         self.initialize_weights(rng)
-
-        # self.gradients = np.zeros(num_of_outputs, dtype=np.float32)
-        # self.prev_weights_delta = np.zeros((num_of_inputs, num_of_outputs), dtype=np.float32)
-        # self.prev_biases_delta = np.zeros(num_of_outputs, dtype=np.float32)
 
     def set_weights(self, weights: np.ndarray) -> None:
         weights = np.asarray(weights, dtype=self.weights.dtype)
@@ -49,53 +38,37 @@ class NeuralNetworkLayer:
         num_inputs, num_outputs = self.weights.shape
         new_weights = np.empty_like(self.weights)
 
-        xavier_limit = np.sqrt(6.0 / (num_inputs + num_outputs))
-        he_std = np.sqrt(2.0 / num_inputs)
-
-        for neuron_index, activation in enumerate(self.activation_functions):
-            if activation is relu:
-                new_weights[:, neuron_index] = rng.normal(loc=0.0, scale=he_std, size=num_inputs)
-
-            elif activation is sigmoid or activation is tanh:
-                new_weights[:, neuron_index] = rng.uniform(low=-xavier_limit, high=xavier_limit, size=num_inputs)
-
-            elif activation is linear:
-                new_weights[:, neuron_index] = rng.uniform(low=-xavier_limit, high=xavier_limit, size=num_inputs)
-
-            else:
-                raise ValueError(f"No initialization rule for activation {activation}")
+        for neuron_index in range(num_outputs):
+            new_weights[:, neuron_index] = self.activation.initialize_weights(num_inputs, num_outputs, rng)
 
         self.set_weights(new_weights)
         self.set_biases(np.zeros_like(self.biases))
 
     def compute_outputs(self, inputs: np.ndarray) -> np.ndarray:
-        self.inputs = inputs
+        self.inputs = np.asarray(inputs, dtype=np.float32)
 
         W = self.weights
         x = self.inputs
         b = self.biases
 
         z = W.T @ x + b
-        y = np.array([activation(value) for activation, value in zip(self.activation_functions, z)])
+        y = np.asarray(self.activation.forward(z), dtype=np.float32)
 
         self.weighted_sums = z
         self.outputs = y
 
         return self.outputs
 
-    # def back_propagate(self):
-
 
 class NeuralNetwork:
-    def __init__(self, network_structure: list[int], activation_functions: list, rng: np.random.Generator | None = None) -> None:
+    def __init__(self, network_structure: list[int], activation_functions: list[Activation], rng: np.random.Generator | None = None) -> None:
         if len(network_structure) < 2:
             raise AttributeError("Network structure should have given number of inputs and outputs at least")
+
         if any(size <= 0 for size in network_structure):
             raise ValueError("Layer sizes must be positive")
-        number_of_layers = len(network_structure) - 1
 
-        if not isinstance(activation_functions, list):
-            raise ValueError("Define one activation function per layer or one activation function for each neuron in every layer.")
+        number_of_layers = len(network_structure) - 1
 
         if len(activation_functions) != number_of_layers:
             raise ValueError(f"Network has {number_of_layers} layers, but {len(activation_functions)} activation specifications were provided.")
@@ -128,13 +101,16 @@ class NeuralNetwork:
                 raise ValueError(f"Invalid weights or biases in layer {layer_index}: {error}") from error
 
     def propagate_forward(self, inputs: np.ndarray) -> np.ndarray:
-        if inputs.size != self.network_structure[0]:
-            raise ValueError(f'Number of passed inputs ({inputs.size}) is different '
-                             f'than number of network inputs {self.network_structure[0]}!')
+        inputs = np.asarray(inputs, dtype=np.float32)
+        if inputs.ndim != 1 or inputs.size != self.network_structure[0]:
+            raise ValueError(f'Number of passed inputs ({inputs.size}) is different than number of network inputs {self.network_structure[0]}!')
 
         data = inputs
         for i in range(len(self.layers)):
             data = self.layers[i].compute_outputs(data)
 
         return data
+
+    def train(self, trainer, X: np.ndarray, Y: np.ndarray):
+        return trainer.train(self, X, Y)
 
