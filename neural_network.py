@@ -1,6 +1,35 @@
+from dataclasses import dataclass
+
 import numpy as np
 
 from activation_functions import Activation
+
+
+@dataclass(frozen=True)
+class LayerSnapshot:
+    """Immutable-by-convention copy of one network layer's state."""
+
+    weights: np.ndarray
+    biases: np.ndarray
+    activation_name: str
+
+
+@dataclass(frozen=True)
+class NetworkSnapshot:
+    """Copy of the network architecture and parameters at an epoch boundary."""
+
+    network_structure: list[int]
+    layers: list[LayerSnapshot]
+
+
+@dataclass(frozen=True)
+class EpochEndEvent:
+    """Information emitted after a completed backpropagation epoch."""
+
+    epoch: int
+    loss: float
+    elapsed_seconds: float
+    snapshot: NetworkSnapshot
 
 
 class NeuralNetworkLayer:
@@ -100,7 +129,7 @@ class NeuralNetwork:
             except ValueError as error:
                 raise ValueError(f"Invalid weights or biases in layer {layer_index}: {error}") from error
 
-    def propagate_forward(self, inputs: np.ndarray) -> np.ndarray:
+    def compute_outputs(self, inputs: np.ndarray) -> np.ndarray:
         inputs = np.asarray(inputs, dtype=np.float32)
         if inputs.ndim != 1 or inputs.size != self.network_structure[0]:
             raise ValueError(f'Number of passed inputs ({inputs.size}) is different than number of network inputs {self.network_structure[0]}!')
@@ -113,4 +142,10 @@ class NeuralNetwork:
 
     def train(self, trainer, X: np.ndarray, Y: np.ndarray):
         return trainer.train(self, X, Y)
+
+    def create_snapshot(self) -> NetworkSnapshot:
+        return NetworkSnapshot(
+            network_structure=list(self.network_structure),
+            layers=[LayerSnapshot(weights=layer.weights.copy(), biases=layer.biases.copy(), activation_name=type(layer.activation).__name__) for layer in self.layers],
+        )
 
