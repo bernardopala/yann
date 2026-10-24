@@ -1,4 +1,4 @@
-"""Contracts for fold-level dataset preparation."""
+"""Contracts for split-level dataset preparation."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -7,7 +7,7 @@ import numpy as np
 
 
 @dataclass(frozen=True)
-class PreparedFold:
+class PreparedSplit:
     X_train: np.ndarray
     Y_train: np.ndarray
     Y_train_for_scoring: np.ndarray
@@ -17,7 +17,7 @@ class PreparedFold:
     output_size: int
 
 
-class FoldProcessor(ABC):
+class SplitProcessor(ABC):
     def __init__(self, X: np.ndarray, Y: np.ndarray, train_indices: np.ndarray, validation_indices: np.ndarray) -> None:
         X = np.asarray(X)
         Y = np.asarray(Y)
@@ -47,7 +47,7 @@ class FoldProcessor(ABC):
         self._Y_validation = Y[validation_indices]
 
     @abstractmethod
-    def prepare(self) -> PreparedFold:
+    def prepare(self) -> PreparedSplit:
         """Prepare one fold using only the training partition for fitting."""
 
     @abstractmethod
