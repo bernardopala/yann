@@ -14,7 +14,7 @@ from .splitters import Splitter
 
 Metric = Callable[[np.ndarray, np.ndarray], float]
 ModelFactory = Callable[[np.random.Generator, int, int], TrainableModel]
-ProcessorFactory = Callable[[], FoldProcessor]
+ProcessorFactory = Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], FoldProcessor]
 
 
 class _EpochRelay:
@@ -29,8 +29,8 @@ class _EpochRelay:
     def on_epoch_end(self, event) -> None:
         training_predictions = self.processor.predictions_for_scoring(self.model.predict(self.prepared_fold.X_train))
         predictions = self.processor.predictions_for_scoring(self.model.predict(self.prepared_fold.X_validation))
-        training_scores = self.evaluator._score(training_predictions, self.prepared_fold.scoring_Y_train)
-        scores = self.evaluator._score(predictions, self.prepared_fold.scoring_Y_validation)
+        training_scores = self.evaluator._score(training_predictions, self.prepared_fold.Y_train_for_scoring)
+        scores = self.evaluator._score(predictions, self.prepared_fold.Y_validation_for_scoring)
 
         self.evaluator._notify(
             "on_fold_epoch_end",
@@ -82,17 +82,12 @@ class ResamplingEvaluator(Evaluator):
         split_results = []
 
         for fold_index, (train_indices, validation_indices) in enumerate(self.splitter.split(X, Y), start=1):
-            processor = self.processor_factory()
+            processor = self.processor_factory(X, Y, train_indices, validation_indices)
 
             if not isinstance(processor, FoldProcessor):
                 raise TypeError("processor_factory must return a FoldProcessor")
 
-            prepared_fold = processor.prepare(
-                X[train_indices],
-                Y[train_indices],
-                X[validation_indices],
-                Y[validation_indices],
-            )
+            prepared_fold = processor.prepare()
 
             model_rng = np.random.default_rng(self.rng.integers(0, 2**63 - 1))
             model = self.model_factory(model_rng, prepared_fold.input_size, prepared_fold.output_size)
@@ -113,8 +108,8 @@ class ResamplingEvaluator(Evaluator):
             training_result = model.train(prepared_fold.X_train, prepared_fold.Y_train)
             training_predictions = processor.predictions_for_scoring(model.predict(prepared_fold.X_train))
             predictions = processor.predictions_for_scoring(model.predict(prepared_fold.X_validation))
-            training_scores = self._score(training_predictions, prepared_fold.scoring_Y_train)
-            scores = self._score(predictions, prepared_fold.scoring_Y_validation)
+            training_scores = self._score(training_predictions, prepared_fold.Y_train_for_scoring)
+            scores = self._score(predictions, prepared_fold.Y_validation_for_scoring)
 
             split_result = SplitResult(
                 split_label=self.splitter.format_split_label(fold_index),
