@@ -4,6 +4,7 @@ from typing import Callable, Mapping
 
 import numpy as np
 
+from fold_processors import FoldProcessor, PreparedFold
 from trainable_models import TrainableModel
 
 from .evaluator import Evaluator
@@ -12,25 +13,24 @@ from .splitters import Splitter
 
 
 Metric = Callable[[np.ndarray, np.ndarray], float]
-ModelFactory = Callable[[np.random.Generator], TrainableModel]
+ModelFactory = Callable[[np.random.Generator, int, int], TrainableModel]
+ProcessorFactory = Callable[[], FoldProcessor]
 
 
 class _EpochRelay:
-    def __init__(self, evaluator, fold_index, model, X_train, Y_train, X_validation, Y_validation):
+    def __init__(self, evaluator: "ResamplingEvaluator", fold_index: int, model: TrainableModel, processor: FoldProcessor, prepared_fold: PreparedFold) -> None:
         self.evaluator = evaluator
         self.fold_index = fold_index
         self.split_label = evaluator.splitter.format_split_label(fold_index)
         self.model = model
-        self.X_train = X_train
-        self.Y_train = Y_train
-        self.X_validation = X_validation
-        self.Y_validation = Y_validation
+        self.processor = processor
+        self.prepared_fold = prepared_fold
 
-    def on_epoch_end(self, event):
-        training_predictions = self.model.predict(self.X_train)
-        predictions = self.model.predict(self.X_validation)
-        training_scores = self.evaluator._score(training_predictions, self.Y_train)
-        scores = self.evaluator._score(predictions, self.Y_validation)
+    def on_epoch_end(self, event) -> None:
+        training_predictions = self.processor.predictions_for_scoring(self.model.predict(self.prepared_fold.X_train))
+        predictions = self.processor.predictions_for_scoring(self.model.predict(self.prepared_fold.X_validation))
+        training_scores = self.evaluator._score(training_predictions, self.prepared_fold.scoring_Y_train)
+        scores = self.evaluator._score(predictions, self.prepared_fold.scoring_Y_validation)
 
         self.evaluator._notify(
             "on_fold_epoch_end",
@@ -45,7 +45,7 @@ class _EpochRelay:
 
 
 class ResamplingEvaluator(Evaluator):
-    def __init__(self, splitter: Splitter, model_factory: ModelFactory, metrics: Mapping[str, Metric], rng: np.random.Generator | None = None) -> None:
+    def __init__(self, splitter: Splitter, model_factory: ModelFactory, processor_factory: ProcessorFactory, metrics: Mapping[str, Metric], rng: np.random.Generator | None = None) -> None:
         super().__init__()
 
         if not isinstance(splitter, Splitter):
@@ -53,6 +53,9 @@ class ResamplingEvaluator(Evaluator):
 
         if not callable(model_factory):
             raise TypeError("model_factory must be callable")
+
+        if not callable(processor_factory):
+            raise TypeError("processor_factory must be callable")
 
         if not metrics:
             raise ValueError("metrics cannot be empty")
@@ -65,6 +68,7 @@ class ResamplingEvaluator(Evaluator):
 
         self.splitter = splitter
         self.model_factory = model_factory
+        self.processor_factory = processor_factory
         self.metrics = dict(metrics)
         self.rng = np.random.default_rng() if rng is None else rng
 
@@ -78,8 +82,20 @@ class ResamplingEvaluator(Evaluator):
         split_results = []
 
         for fold_index, (train_indices, validation_indices) in enumerate(self.splitter.split(X, Y), start=1):
+            processor = self.processor_factory()
+
+            if not isinstance(processor, FoldProcessor):
+                raise TypeError("processor_factory must return a FoldProcessor")
+
+            prepared_fold = processor.prepare(
+                X[train_indices],
+                Y[train_indices],
+                X[validation_indices],
+                Y[validation_indices],
+            )
+
             model_rng = np.random.default_rng(self.rng.integers(0, 2**63 - 1))
-            model = self.model_factory(model_rng)
+            model = self.model_factory(model_rng, prepared_fold.input_size, prepared_fold.output_size)
 
             if not isinstance(model, TrainableModel):
                 raise TypeError("model_factory must return a TrainableModel")
@@ -89,18 +105,16 @@ class ResamplingEvaluator(Evaluator):
                     evaluator=self,
                     fold_index=fold_index,
                     model=model,
-                    X_train=X[train_indices],
-                    Y_train=Y[train_indices],
-                    X_validation=X[validation_indices],
-                    Y_validation=Y[validation_indices],
+                    processor=processor,
+                    prepared_fold=prepared_fold,
                 )
             )
 
-            training_result = model.train(X[train_indices], Y[train_indices])
-            training_predictions = model.predict(X[train_indices])
-            predictions = model.predict(X[validation_indices])
-            training_scores = self._score(training_predictions, Y[train_indices])
-            scores = self._score(predictions, Y[validation_indices])
+            training_result = model.train(prepared_fold.X_train, prepared_fold.Y_train)
+            training_predictions = processor.predictions_for_scoring(model.predict(prepared_fold.X_train))
+            predictions = processor.predictions_for_scoring(model.predict(prepared_fold.X_validation))
+            training_scores = self._score(training_predictions, prepared_fold.scoring_Y_train)
+            scores = self._score(predictions, prepared_fold.scoring_Y_validation)
 
             split_result = SplitResult(
                 split_label=self.splitter.format_split_label(fold_index),
