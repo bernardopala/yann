@@ -1,18 +1,18 @@
 """Evaluator for holdout, k-fold and time-series resampling strategies."""
 
-from typing import Callable, Mapping
+from typing import Callable
 
 import numpy as np
 
 from split_processors import PreparedSplit, SplitProcessor
 from trainable_models import TrainableModel
+from metrics import Metric
 
 from .evaluator import Evaluator
 from .events import EvaluationResult, FoldEndEvent, FoldEpochEndEvent, SplitResult
 from .splitters import Splitter
 
 
-Metric = Callable[[np.ndarray, np.ndarray], float]
 ModelFactory = Callable[[np.random.Generator, int, int], TrainableModel]
 SplitProcessorFactory = Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], SplitProcessor]
 
@@ -29,8 +29,8 @@ class _EpochRelay:
     def on_epoch_end(self, event) -> None:
         training_predictions = self.processor.predictions_for_scoring(self.model.predict(self.prepared_split.X_train))
         predictions = self.processor.predictions_for_scoring(self.model.predict(self.prepared_split.X_validation))
-        training_scores = self.evaluator._score(training_predictions, self.prepared_split.Y_train_for_scoring)
-        scores = self.evaluator._score(predictions, self.prepared_split.Y_validation_for_scoring)
+        training_scores = self.evaluator._score(self.prepared_split.Y_train_for_scoring, training_predictions)
+        scores = self.evaluator._score(self.prepared_split.Y_validation_for_scoring, predictions)
 
         self.evaluator._notify(
             "on_fold_epoch_end",
@@ -45,7 +45,7 @@ class _EpochRelay:
 
 
 class ResamplingEvaluator(Evaluator):
-    def __init__(self, splitter: Splitter, model_factory: ModelFactory, split_processor_factory: SplitProcessorFactory, metrics: Mapping[str, Metric], rng: np.random.Generator | None = None) -> None:
+    def __init__(self, splitter: Splitter, model_factory: ModelFactory, split_processor_factory: SplitProcessorFactory, metrics: list[Metric], rng: np.random.Generator | None = None) -> None:
         super().__init__()
 
         if not isinstance(splitter, Splitter):
@@ -57,19 +57,22 @@ class ResamplingEvaluator(Evaluator):
         if not callable(split_processor_factory):
             raise TypeError("split_processor_factory must be callable")
 
+        if not isinstance(metrics, list):
+            raise TypeError("metrics must be a list of Metric")
+
         if not metrics:
             raise ValueError("metrics cannot be empty")
 
-        if not all(isinstance(name, str) and name for name in metrics):
-            raise TypeError("metric names must be non-empty strings")
+        if not all(isinstance(metric, Metric) for metric in metrics):
+            raise TypeError("metrics must contain Metric objects")
 
-        if not all(callable(metric) for metric in metrics.values()):
-            raise TypeError("metrics must contain callable values")
+        if len({metric.name for metric in metrics}) != len(metrics):
+            raise ValueError("metric names must be unique")
 
         self.splitter = splitter
         self.model_factory = model_factory
         self.split_processor_factory = split_processor_factory
-        self.metrics = dict(metrics)
+        self.metrics: list[Metric] = list(metrics)
         self.rng = np.random.default_rng() if rng is None else rng
 
     def evaluate(self, X: np.ndarray, Y: np.ndarray) -> EvaluationResult:
@@ -108,8 +111,8 @@ class ResamplingEvaluator(Evaluator):
             training_result = model.train(prepared_split.X_train, prepared_split.Y_train)
             training_predictions = processor.predictions_for_scoring(model.predict(prepared_split.X_train))
             predictions = processor.predictions_for_scoring(model.predict(prepared_split.X_validation))
-            training_scores = self._score(training_predictions, prepared_split.Y_train_for_scoring)
-            scores = self._score(predictions, prepared_split.Y_validation_for_scoring)
+            training_scores = self._score(prepared_split.Y_train_for_scoring, training_predictions)
+            scores = self._score(prepared_split.Y_validation_for_scoring, predictions)
 
             split_result = SplitResult(
                 split_label=self.splitter.format_split_label(fold_index),
@@ -138,8 +141,10 @@ class ResamplingEvaluator(Evaluator):
         self._notify("on_evaluation_end", result)
         return result
 
-    def _score(self, predictions: np.ndarray, targets: np.ndarray) -> dict[str, float]:
-        return {
-            name: float(metric(predictions, targets))
-            for name, metric in self.metrics.items()
-        }
+    def _score(self, y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
+        scores = {metric.name: metric.compute(y_true, y_pred) for metric in self.metrics}
+
+        if not all(np.isscalar(score) and np.isfinite(score) for score in scores.values()):
+            raise ValueError("metrics must return finite scalar values")
+
+        return {name: float(score) for name, score in scores.items()}
