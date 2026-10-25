@@ -45,10 +45,10 @@ class EvaluationResult:
     def training_scores(self, metric_name: str) -> np.ndarray:
         return np.asarray([split.training_scores[metric_name] for split in self.splits], dtype=np.float64)
 
-    def mean_score(self, metric_name: str) -> float:
+    def mean_validation_score(self, metric_name: str) -> float:
         return float(np.mean(self.scores(metric_name)))
 
-    def std_score(self, metric_name: str) -> float:
+    def std_validation_score(self, metric_name: str) -> float:
         return float(np.std(self.scores(metric_name)))
 
     def mean_training_score(self, metric_name: str) -> float:
