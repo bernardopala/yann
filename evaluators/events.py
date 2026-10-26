@@ -2,23 +2,22 @@
 
 from dataclasses import dataclass
 from typing import Any
-
 import numpy as np
 
 
 @dataclass(frozen=True)
-class FoldEpochEndEvent:
+class SplitEpochEndEvent:
     split_label: str
-    fold_index: int
+    split_index: int
     epoch_event: Any
     training_scores: dict[str, float]
     validation_scores: dict[str, float]
 
 
 @dataclass(frozen=True)
-class FoldEndEvent:
+class SplitEndEvent:
     split_label: str
-    fold_index: int
+    split_index: int
     training_result: Any
     training_scores: dict[str, float]
     scores: dict[str, float]
@@ -29,7 +28,7 @@ class FoldEndEvent:
 @dataclass(frozen=True)
 class SplitResult:
     split_label: str
-    fold_index: int
+    split_index: int
     training_result: Any
     training_scores: dict[str, float]
     scores: dict[str, float]

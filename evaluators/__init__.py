@@ -1,5 +1,5 @@
 from .evaluator import Evaluator
-from .events import EvaluationResult, FoldEndEvent, FoldEpochEndEvent, SplitResult
+from .events import EvaluationResult, SplitEndEvent, SplitEpochEndEvent, SplitResult
 from .history_observer import HistoryObserver
 from .resampling_evaluator import ResamplingEvaluator
 from .splitters import HoldoutSplitter, KFoldSplitter, Splitter, StratifiedKFoldSplitter, TimeSeriesSplitter
@@ -9,8 +9,8 @@ __all__ = [
     "ResamplingEvaluator",
     "EvaluationResult",
     "SplitResult",
-    "FoldEndEvent",
-    "FoldEpochEndEvent",
+    "SplitEndEvent",
+    "SplitEpochEndEvent",
     "HistoryObserver",
     "Splitter",
     "HoldoutSplitter",

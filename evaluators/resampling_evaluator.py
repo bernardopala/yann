@@ -4,12 +4,12 @@ from typing import Callable
 
 import numpy as np
 
-from split_processors import PreparedSplit, SplitProcessor
+from split_processors.split_processor import PreparedSplit, SplitProcessor
 from trainable_models import TrainableModel
 from metrics import Metric
 
 from .evaluator import Evaluator
-from .events import EvaluationResult, FoldEndEvent, FoldEpochEndEvent, SplitResult
+from .events import EvaluationResult, SplitEndEvent, SplitEpochEndEvent, SplitResult
 from .splitters import Splitter
 
 
@@ -18,10 +18,10 @@ SplitProcessorFactory = Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray
 
 
 class _EpochRelay:
-    def __init__(self, evaluator: "ResamplingEvaluator", fold_index: int, model: TrainableModel, processor: SplitProcessor, prepared_split: PreparedSplit) -> None:
+    def __init__(self, evaluator: "ResamplingEvaluator", split_index: int, model: TrainableModel, processor: SplitProcessor, prepared_split: PreparedSplit) -> None:
         self.evaluator = evaluator
-        self.fold_index = fold_index
-        self.split_label = evaluator.splitter.format_split_label(fold_index)
+        self.split_index = split_index
+        self.split_label = evaluator.splitter.format_split_label(split_index)
         self.model = model
         self.processor = processor
         self.prepared_split = prepared_split
@@ -33,10 +33,10 @@ class _EpochRelay:
         scores = self.evaluator._score(self.prepared_split.Y_validation_for_scoring, predictions)
 
         self.evaluator._notify(
-            "on_fold_epoch_end",
-            FoldEpochEndEvent(
+            "on_split_epoch_end",
+            SplitEpochEndEvent(
                 split_label=self.split_label,
-                fold_index=self.fold_index,
+                split_index=self.split_index,
                 epoch_event=event,
                 training_scores=training_scores,
                 validation_scores=scores,
@@ -84,7 +84,7 @@ class ResamplingEvaluator(Evaluator):
 
         split_results = []
 
-        for fold_index, (train_indices, validation_indices) in enumerate(self.splitter.split(X, Y), start=1):
+        for split_index, (train_indices, validation_indices) in enumerate(self.splitter.split(X, Y), start=1):
             processor = self.split_processor_factory(X, Y, train_indices, validation_indices)
 
             if not isinstance(processor, SplitProcessor):
@@ -101,7 +101,7 @@ class ResamplingEvaluator(Evaluator):
             model.add_observer(
                 _EpochRelay(
                     evaluator=self,
-                    fold_index=fold_index,
+                    split_index=split_index,
                     model=model,
                     processor=processor,
                     prepared_split=prepared_split,
@@ -115,8 +115,8 @@ class ResamplingEvaluator(Evaluator):
             scores = self._score(prepared_split.Y_validation_for_scoring, predictions)
 
             split_result = SplitResult(
-                split_label=self.splitter.format_split_label(fold_index),
-                fold_index=fold_index,
+                split_label=self.splitter.format_split_label(split_index),
+                split_index=split_index,
                 training_result=training_result,
                 training_scores=training_scores,
                 scores=scores,
@@ -125,10 +125,10 @@ class ResamplingEvaluator(Evaluator):
             split_results.append(split_result)
 
             self._notify(
-                "on_fold_end",
-                FoldEndEvent(
-                    split_label=self.splitter.format_split_label(fold_index),
-                    fold_index=fold_index,
+                "on_split_end",
+                SplitEndEvent(
+                    split_label=self.splitter.format_split_label(split_index),
+                    split_index=split_index,
                     training_result=training_result,
                     training_scores=training_scores,
                     scores=scores,
