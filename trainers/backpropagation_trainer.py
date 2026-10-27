@@ -14,6 +14,8 @@ from stop_criteria import StopCriterion
 
 from observers import BackpropagationObserver
 
+from ._output_gradient import resolve_output_gradient
+
 
 class BackpropagationTrainer:
     def __init__(self, loss: Loss, optimizer: Optimizer, options: BackpropagationOptions, rng: np.random.Generator | None = None) -> None:
@@ -44,7 +46,6 @@ class BackpropagationTrainer:
 
         while not self._should_stop(epochs_completed, time_elapsed, average_loss):
             indices = self._prepare_indices(sample_count)
-            epoch_loss, processed_samples = 0.0, 0
 
             for start in range(0, sample_count, self.options.batch_size):
                 batch_indices = indices[start:start + self.options.batch_size]
@@ -52,16 +53,15 @@ class BackpropagationTrainer:
 
                 for index in batch_indices:
                     prediction = network.compute_outputs(X[index])
-                    epoch_loss += self.loss.value(prediction, Y[index])
-                    sample_weight_gradients, sample_bias_gradients = self._backpropagate(network, self.loss.gradient(prediction, Y[index]))
+                    output_gradient, is_output_delta = resolve_output_gradient(self.loss, network.layers[-1].activation, prediction, Y[index])
+                    sample_weight_gradients, sample_bias_gradients = self._backpropagate(network, output_gradient, is_output_delta)
                     self._accumulate_gradients(batch_weight_gradients, batch_bias_gradients, sample_weight_gradients, sample_bias_gradients)
-                    processed_samples += 1
 
                 self._update_network_weights_and_biases(network, batch_weight_gradients, batch_bias_gradients, len(batch_indices))
 
             epochs_completed += 1
+            average_loss = self._compute_average_loss(network, X, Y)
             time_elapsed = perf_counter() - started_at
-            average_loss = float(epoch_loss / processed_samples)
 
             if self.observers:
                 event = EpochEndEvent(epoch=epochs_completed, loss=average_loss, elapsed_seconds=time_elapsed, snapshot=network.create_snapshot())
@@ -70,6 +70,9 @@ class BackpropagationTrainer:
                     observer.on_epoch_end(event)
 
         return BackpropagationResult(average_loss, epochs_completed, time_elapsed)
+
+    def _compute_average_loss(self, network: NeuralNetwork, X: np.ndarray, Y: np.ndarray) -> float:
+        return float(np.mean([self.loss.value(network.compute_outputs(x), y) for x, y in zip(X, Y)]))
 
     def _prepare_indices(self, sample_count: int) -> np.ndarray:
         if self.options.shuffle:
@@ -107,13 +110,18 @@ class BackpropagationTrainer:
         bias_gradients = [np.zeros_like(layer.biases)for layer in network.layers]
         return weight_gradients, bias_gradients
 
-    def _backpropagate(self, network: NeuralNetwork, output_gradient: np.ndarray) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    def _backpropagate(self, network: NeuralNetwork, output_gradient: np.ndarray, is_output_delta: bool = False) -> tuple[list[np.ndarray], list[np.ndarray]]:
         gradient = np.asarray(output_gradient, dtype=np.float32)
         weight_gradients, bias_gradients = self._zero_gradients(network)
 
         for layer_index in range(len(network.layers) - 1, -1, -1):
             layer = network.layers[layer_index]
-            delta = self._compute_layer_delta(layer, gradient)
+
+            if layer_index == len(network.layers) - 1 and is_output_delta:
+                delta = gradient
+            else:
+                delta = self._compute_layer_delta(layer, gradient)
+
             weight_gradients[layer_index][...] = np.outer(layer.inputs, delta)
             bias_gradients[layer_index][...] = delta
             gradient = layer.weights @ delta

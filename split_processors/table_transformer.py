@@ -25,6 +25,10 @@ class TableTransformer:
         self.has_categorical_output = False
 
     def fit(self, values: np.ndarray) -> None:
+        self.output_widths.clear()
+        self.model_output_size = 0
+        self.has_categorical_output = False
+
         for spec in self.schema:
             current = self._column(values, spec.index)
 
