@@ -18,12 +18,12 @@ class BinaryCrossEntropy(Loss):
 
         return targets
 
-    def value(self, prediction: np.ndarray, target: np.ndarray) -> float:
-        target = np.asarray(target, dtype=np.float32)
-        probabilities = np.clip(prediction, self._EPSILON, 1.0 - self._EPSILON)
-        return float(-np.mean(target * np.log(probabilities) + (1.0 - target) * np.log(1.0 - probabilities)))
+    def value_batch(self, predictions: np.ndarray, targets: np.ndarray) -> float:
+        targets = np.asarray(targets, dtype=np.float32)
+        probabilities = np.clip(np.asarray(predictions, dtype=np.float32), self._EPSILON, 1.0 - self._EPSILON)
+        return float(-np.mean(targets * np.log(probabilities) + (1.0 - targets) * np.log(1.0 - probabilities)))
 
-    def gradient(self, prediction: np.ndarray, target: np.ndarray) -> np.ndarray:
-        target = np.asarray(target, dtype=np.float32)
-        probabilities = np.clip(prediction, self._EPSILON, 1.0 - self._EPSILON)
-        return (probabilities - target) / (probabilities * (1.0 - probabilities) * prediction.size)
+    def gradient_batch(self, predictions: np.ndarray, targets: np.ndarray) -> np.ndarray:
+        targets = np.asarray(targets, dtype=np.float32)
+        probabilities = np.clip(np.asarray(predictions, dtype=np.float32), self._EPSILON, 1.0 - self._EPSILON)
+        return (probabilities - targets) / (probabilities * (1.0 - probabilities) * probabilities.size)

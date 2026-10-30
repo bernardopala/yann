@@ -24,7 +24,7 @@ class NeuralNetworkModel(TrainableModel):
         if X.ndim != 2:
             raise ValueError("X must have shape (samples, features)")
 
-        return np.asarray([self.network.compute_outputs(row) for row in X])
+        return self.network.compute_outputs(X)
 
     def add_observer(self, observer: Any) -> None:
         self.trainer.add_observer(observer)

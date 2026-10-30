@@ -35,12 +35,12 @@ class EpochEndEvent:
 class NeuralNetworkLayer:
     def __init__(self, num_of_inputs: int, num_of_outputs: int, activation: Activation,
                  rng: np.random.Generator) -> None:
-        self.inputs = np.zeros(num_of_inputs, dtype=np.float32)
+        self.inputs = np.zeros((0, num_of_inputs), dtype=np.float32)
         self.weights = np.zeros((num_of_inputs, num_of_outputs), dtype=np.float32)
         self.biases = np.zeros(num_of_outputs, dtype=np.float32)
-        self.weighted_sums = np.zeros(num_of_outputs, dtype=np.float32)
+        self.weighted_sums = np.zeros((0, num_of_outputs), dtype=np.float32)
         self.activation = activation
-        self.outputs = np.zeros(num_of_outputs, dtype=np.float32)
+        self.outputs = np.zeros((0, num_of_outputs), dtype=np.float32)
 
         self.initialize_weights(rng)
 
@@ -76,11 +76,10 @@ class NeuralNetworkLayer:
     def compute_outputs(self, inputs: np.ndarray) -> np.ndarray:
         self.inputs = np.asarray(inputs, dtype=np.float32)
 
-        W = self.weights
-        x = self.inputs
-        b = self.biases
+        if self.inputs.ndim != 2 or self.inputs.shape[1] != self.weights.shape[0]:
+            raise ValueError(f"Expected inputs with shape (batch, {self.weights.shape[0]}), got {self.inputs.shape}")
 
-        z = W.T @ x + b
+        z = self.inputs @ self.weights + self.biases
         y = np.asarray(self.activation.forward(z), dtype=np.float32)
 
         self.weighted_sums = z
@@ -131,8 +130,8 @@ class NeuralNetwork:
 
     def compute_outputs(self, inputs: np.ndarray) -> np.ndarray:
         inputs = np.asarray(inputs, dtype=np.float32)
-        if inputs.ndim != 1 or inputs.size != self.network_structure[0]:
-            raise ValueError(f'Number of passed inputs ({inputs.size}) is different than number of network inputs {self.network_structure[0]}!')
+        if inputs.ndim != 2 or inputs.shape[1] != self.network_structure[0]:
+            raise ValueError(f'Expected inputs with shape (batch, {self.network_structure[0]}), got {inputs.shape}')
 
         data = inputs
         for i in range(len(self.layers)):

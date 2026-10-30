@@ -21,10 +21,15 @@ class SparseCategoricalCrossEntropy(Loss):
 
         return targets
 
-    def value(self, prediction: np.ndarray, target: int) -> float:
-        return float(-np.log(np.clip(prediction[int(target)], self._EPSILON, 1.0)))
+    def value_batch(self, predictions: np.ndarray, targets: np.ndarray) -> float:
+        predictions = np.asarray(predictions, dtype=np.float32)
+        targets = np.asarray(targets, dtype=np.intp)
+        probabilities = np.clip(predictions[np.arange(len(targets)), targets], self._EPSILON, 1.0)
+        return float(-np.mean(np.log(probabilities)))
 
-    def gradient(self, prediction: np.ndarray, target: int) -> np.ndarray:
-        result = np.zeros_like(prediction)
-        result[int(target)] = -1.0 / np.clip(prediction[int(target)], self._EPSILON, 1.0)
-        return result
+    def gradient_batch(self, predictions: np.ndarray, targets: np.ndarray) -> np.ndarray:
+        predictions = np.asarray(predictions, dtype=np.float32)
+        targets = np.asarray(targets, dtype=np.intp)
+        result = np.zeros_like(predictions)
+        result[np.arange(len(targets)), targets] = -1.0 / np.clip(predictions[np.arange(len(targets)), targets], self._EPSILON, 1.0)
+        return result / len(targets)

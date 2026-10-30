@@ -49,15 +49,10 @@ class BackpropagationTrainer:
 
             for start in range(0, sample_count, self.options.batch_size):
                 batch_indices = indices[start:start + self.options.batch_size]
-                batch_weight_gradients, batch_bias_gradients = self._zero_gradients(network)
-
-                for index in batch_indices:
-                    prediction = network.compute_outputs(X[index])
-                    output_gradient, is_output_delta = resolve_output_gradient(self.loss, network.layers[-1].activation, prediction, Y[index])
-                    sample_weight_gradients, sample_bias_gradients = self._backpropagate(network, output_gradient, is_output_delta)
-                    self._accumulate_gradients(batch_weight_gradients, batch_bias_gradients, sample_weight_gradients, sample_bias_gradients)
-
-                self._update_network_weights_and_biases(network, batch_weight_gradients, batch_bias_gradients, len(batch_indices))
+                prediction = network.compute_outputs(X[batch_indices])
+                output_gradient, is_output_delta = resolve_output_gradient(self.loss, network.layers[-1].activation, prediction, Y[batch_indices])
+                batch_weight_gradients, batch_bias_gradients = self._backpropagate(network, output_gradient, is_output_delta)
+                self._update_network_weights_and_biases(network, batch_weight_gradients, batch_bias_gradients)
 
             epochs_completed += 1
             average_loss = self._compute_average_loss(network, X, Y)
@@ -72,7 +67,7 @@ class BackpropagationTrainer:
         return BackpropagationResult(average_loss, epochs_completed, time_elapsed)
 
     def _compute_average_loss(self, network: NeuralNetwork, X: np.ndarray, Y: np.ndarray) -> float:
-        return float(np.mean([self.loss.value(network.compute_outputs(x), y) for x, y in zip(X, Y)]))
+        return self.loss.value_batch(network.compute_outputs(X), Y)
 
     def _prepare_indices(self, sample_count: int) -> np.ndarray:
         if self.options.shuffle:
@@ -112,6 +107,8 @@ class BackpropagationTrainer:
 
     def _backpropagate(self, network: NeuralNetwork, output_gradient: np.ndarray, is_output_delta: bool = False) -> tuple[list[np.ndarray], list[np.ndarray]]:
         gradient = np.asarray(output_gradient, dtype=np.float32)
+        if gradient.ndim == 1:
+            gradient = gradient[None, :]
         weight_gradients, bias_gradients = self._zero_gradients(network)
 
         for layer_index in range(len(network.layers) - 1, -1, -1):
@@ -122,23 +119,20 @@ class BackpropagationTrainer:
             else:
                 delta = self._compute_layer_delta(layer, gradient)
 
-            weight_gradients[layer_index][...] = np.outer(layer.inputs, delta)
-            bias_gradients[layer_index][...] = delta
-            gradient = layer.weights @ delta
+            inputs = layer.inputs if layer.inputs.ndim == 2 else layer.inputs[None, :]
+            delta = delta if delta.ndim == 2 else delta[None, :]
+            weight_gradients[layer_index][...] = inputs.T @ delta
+            bias_gradients[layer_index][...] = np.sum(delta, axis=0)
+            gradient = delta @ layer.weights.T
 
         return weight_gradients, bias_gradients
 
-    def _accumulate_gradients(self, batch_weight_gradients: list[np.ndarray], batch_bias_gradients: list[np.ndarray], sample_weight_gradients: list[np.ndarray], sample_bias_gradients: list[np.ndarray]) -> None:
-        for layer_index in range(len(batch_weight_gradients)):
-            batch_weight_gradients[layer_index] += sample_weight_gradients[layer_index]
-            batch_bias_gradients[layer_index] += sample_bias_gradients[layer_index]
-
-    def _update_network_weights_and_biases(self, network: NeuralNetwork, weight_gradients: list[np.ndarray], bias_gradients: list[np.ndarray], batch_size: int) -> None:
+    def _update_network_weights_and_biases(self, network: NeuralNetwork, weight_gradients: list[np.ndarray], bias_gradients: list[np.ndarray]) -> None:
         weights_and_biases = []
 
         for index, layer in enumerate(network.layers):
-            weights_and_biases.append(((index, "weights"),layer.weights,weight_gradients[index] / batch_size))
-            weights_and_biases.append(((index, "biases"),layer.biases,bias_gradients[index] / batch_size))
+            weights_and_biases.append(((index, "weights"), layer.weights, weight_gradients[index]))
+            weights_and_biases.append(((index, "biases"), layer.biases, bias_gradients[index]))
 
         self.optimizer.step(weights_and_biases)
 

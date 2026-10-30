@@ -6,7 +6,7 @@ import numpy as np
 
 
 class Loss(ABC):
-    """A differentiable objective evaluated for one training example."""
+    """A differentiable objective evaluated for a batch of training examples."""
 
     def validate_targets(self, targets: np.ndarray, output_size: int) -> np.ndarray:
         """Validate and normalize a batch of targets for the network output."""
@@ -23,9 +23,9 @@ class Loss(ABC):
         return targets.astype(np.float32)
 
     @abstractmethod
-    def value(self, prediction: np.ndarray, target: np.ndarray | int) -> float:
-        """Return the scalar loss for one example."""
+    def value_batch(self, predictions: np.ndarray, targets: np.ndarray) -> float:
+        """Return the mean loss for a batch of examples."""
 
     @abstractmethod
-    def gradient(self, prediction: np.ndarray, target: np.ndarray | int) -> np.ndarray:
-        """Return ``d(loss) / d(prediction)`` for one example."""
+    def gradient_batch(self, predictions: np.ndarray, targets: np.ndarray) -> np.ndarray:
+        """Return the gradient of the mean batch loss with respect to predictions."""
