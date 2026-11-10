@@ -1,57 +1,68 @@
-# YANN — Yet Another Neural Network (from Scratch in NumPy)
+# YANN — Yet Another Neural Network (from scratch in NumPy)
 
-YANN is an educational neural-network framework implemented from scratch with
-NumPy. It makes the mechanics of a multilayer perceptron explicit: dense-layer
-forward propagation, backpropagation, parameter initialization, optimization,
-data preprocessing, resampling, and model evaluation remain visible and easy to
-inspect.
+YANN to edukacyjny framework sieci neuronowych zaimplementowany od podstaw przy
+użyciu NumPy. W przejrzysty sposób przedstawia mechanizmy działania perceptronu
+wielowarstwowego: propagację w przód w warstwach gęstych, propagację wsteczną,
+inicjalizację parametrów, optymalizację, wstępne przetwarzanie danych,
+resampling oraz ocenę modelu — wszystko pozostaje widoczne i łatwe do
+przeanalizowania.
 
-The project is designed for learning and controlled experiments rather than as
-a replacement for a production deep-learning framework. YANN currently focuses
-on fully connected feed-forward networks and runs on the CPU through NumPy.
+Projekt jest przeznaczony do nauki i kontrolowanych eksperymentów, a nie jako
+zamiennik produkcyjnego frameworka deep learning. Obecnie YANN koncentruje się
+na w pełni połączonych sieciach jednokierunkowych i wykonuje obliczenia na CPU
+za pośrednictwem NumPy.
 
-## Why YANN?
+📖 [**→ Przejdź do kursu wprowadzajacego w YANN**](https://github.com/bernardopala/yann/blob/main/notebooks/yann_crash_course.ipynb) 
 
-- **Readable mechanics** — weights, biases, activations, cached layer values,
-  gradients, and optimizer updates are represented directly by NumPy arrays.
-- **Vectorized training** — forward and backward passes operate on complete
-  mini-batches instead of iterating over individual samples.
-- **Modular components** — activations, losses, optimizers, stopping criteria,
-  observers, metrics, transformers, and splitters have small public contracts.
-- **Reproducible experiments** — network initialization, batch shuffling,
-  resampling, and model creation accept explicit NumPy random generators.
-- **Leakage-aware evaluation** — transformations are fitted on each training
-  partition and then applied to its validation partition.
-- **Tabular and time-series workflows** — schema-driven column transformations,
-  chronological splits, flattened lookback windows, and multi-step regression
-  are included.
+## Dlaczego YANN?
 
-## Features at a glance
+- **Czytelne mechanizmy** - wagi, obciążenia, aktywacje, buforowane wartości
+  warstw, gradienty i aktualizacje optymalizatora są reprezentowane bezpośrednio
+  przez tablice NumPy.
+- **Wektoryzowane trenowanie** - przebiegi w przód i wstecz operują na całych
+  mini-batchach zamiast iterować po pojedynczych próbkach.
+- **Modułowe komponenty** - aktywacje, funkcje straty, optymalizatory, kryteria
+  zatrzymania, obserwatory, metryki, transformatory i strategie podziału danych
+  mają niewielkie, jasno określone interfejsy publiczne.
+- **Powtarzalne eksperymenty** - inicjalizacja sieci, tasowanie batchów,
+  resampling i tworzenie modeli przyjmują jawnie przekazane generatory liczb
+  losowych NumPy.
+- **Ocena zapobiegająca wyciekowi danych** - transformacje są dopasowywane do
+  każdego zbioru treningowego, a następnie stosowane do odpowiadającego mu
+  zbioru walidacyjnego.
+- **Obsługa danych tabelarycznych i szeregów czasowych** - dostępne są
+  transformacje kolumn oparte na schemacie, podziały chronologiczne, spłaszczone
+  okna danych historycznych oraz regresja wielokrokowa.
 
-| Area | Available components |
-|---|---|
-| Activations | `Linear`, `ReLU`, `Sigmoid`, `Softmax`, `Tanh` |
-| Losses | `MSE`, `BinaryCrossEntropy`, `SparseCategoricalCrossEntropy` |
-| Optimizers | `SGD`, `Momentum`, `NesterovMomentum`, `RMSProp`, `Adam`, `AdamW` |
-| Stopping criteria | `MaxEpochs`, `MaxTrainingTime`, `TargetLoss` |
-| Training observers | `ConsoleObserver`, `HistoryObserver`, epoch-end network snapshots |
-| Metrics | accuracy, binary accuracy, binary/sparse categorical cross-entropy, MAE, MSE, RMSE |
-| Resampling | holdout, K-fold, stratified K-fold, expanding or rolling time-series splits |
-| Data transformations | passthrough, standard scaling, label/ordinal/one-hot encoding, cyclical and date-time features |
-| Extension points | activations, losses, optimizers, stopping criteria, observers, metrics, transformers, splitters, and trainable models |
+## Najważniejsze funkcje
 
-YANN uses numerically stable combined output gradients for the standard
-`BinaryCrossEntropy` + `Sigmoid` and
-`SparseCategoricalCrossEntropy` + `Softmax` pairs.
+| Obszar | Dostępne komponenty                                                                                                                                       |
+|---|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Funkcje aktywacji | `Linear`, `ReLU`, `Sigmoid`, `Softmax`, `Tanh`                                                                                                            |
+| Funkcje straty | `MSE`, `BinaryCrossEntropy`, `SparseCategoricalCrossEntropy`                                                                                              |
+| Optymalizatory | `SGD`, `Momentum`, `NesterovMomentum`, `RMSProp`, `Adam`, `AdamW`                                                                                         |
+| Kryteria zatrzymania | `MaxEpochs`, `MaxTrainingTime`, `TargetLoss`                                                                                                              |
+| Obserwatory trenowania | `ConsoleObserver`, `HistoryObserver`, snapshoty sieci na koniec epoki                                                                                     |
+| Metryki | accuracy, binary accuracy, binary/sparse categorical cross-entropy, MAE, MSE, RMSE                                                                        |
+| Resampling | holdout, K-fold, stratified K-fold, splity dla szeregów czasowych typu expanding lub rolling                                                 |
+| Transformacje danych | passthrough, standard scaling, label/ordinal/one-hot encoding, cechy cykliczne oraz cechy daty i czasu                                    |
+| Punkty rozszerzeń | aktywacje, funkcje straty, optymalizatory, kryteria zatrzymania, obserwatory, metryki, transformatory, strategie podziału i modele podlegające trenowaniu |
 
-## Quick start: learn XOR
+YANN wykorzystuje stabilne numerycznie, połączone gradienty wyjściowe dla
+standardowych par `BinaryCrossEntropy` + `Sigmoid` oraz
+`SparseCategoricalCrossEntropy` + `Softmax`.
 
-XOR contains all four combinations of two binary inputs. Its target is 1 when the inputs differ and 0 otherwise. Because XOR is not linearly separable, solving it requires a hidden layer.
+## Szybki start: nauka funkcji XOR
 
-The following example builds a `2 → 4 → 1` MLP and trains it as a binary
-classifier. The first number in `network_structure` is the input width; every
-subsequent number creates a dense layer with its own weights, biases, and
-activation.
+XOR obejmuje wszystkie cztery kombinacje dwóch wejść binarnych. Wartość
+docelowa wynosi 1, gdy wejścia są różne, oraz 0 w przeciwnym przypadku. Ponieważ
+funkcja XOR nie jest liniowo separowalna, do jej odwzorowania potrzebna jest
+warstwa ukryta.
+
+Poniższy przykład tworzy perceptron wielowarstwowy `2 → 4 → 1` i trenuje go jako
+klasyfikator binarny. Pierwsza liczba w `network_structure` określa rozmiar
+wejścia, a każda kolejna tworzy warstwę gęstą z własnymi wagami, obciążeniami i
+funkcją aktywacji.
 
 ```python
 import numpy as np
@@ -104,7 +115,7 @@ print("Probabilities:", np.round(probabilities, 3))
 print("Predictions:", predictions)
 ```
 
-A clean run produces output similar to:
+Prawidłowe uruchomienie daje wynik podobny do poniższego:
 
 ```text
 Epochs: 100
@@ -113,25 +124,29 @@ Probabilities: [0.006 0.997 0.994 0.005]
 Predictions: [0 1 1 0]
 ```
 
-`network.compute_outputs(X)` always returns the raw output of the last
-activation. Converting it into a task-level prediction is explicit:
+`network.compute_outputs(X)` zawsze zwraca surowe wyjście ostatniej funkcji
+aktywacji. Jego przekształcenie we właściwą predykcję dla danego zadania odbywa
+się jawnie:
 
-- regression: use the output directly;
-- binary or multilabel classification: apply a chosen threshold;
-- multiclass classification: use `np.argmax(probabilities, axis=1)`.
+- regresja: użyj wyjścia bezpośrednio;
+- klasyfikacja binarna lub wieloetykietowa: zastosuj wybrany próg;
+- klasyfikacja wieloklasowa: użyj `np.argmax(probabilities, axis=1)`.
 
-## Advanced example
+## Pełny przepływ pracy 
 
-This example demonstrates a more complete YANN workflow by combining preprocessing, model construction, training, holdout evaluation, and metrics in a single reproducible pipeline.
+Ten przykład przedstawia kompletny przepływ pracy w YANN, łącząc
+wstępne przetwarzanie danych, budowę modelu, trenowanie, ocenę metodą holdout i
+metryki w jednym powtarzalnym pipeline.
 
-The example below uses a small synthetic regression dataset. It contains 120
-evenly spaced input values from -2 to 2, with targets generated by the nonlinear
-function $y = 0.4x^3 - x + 0.1$. The dataset is noise-free so that the example
-focuses on the YANN workflow rather than on data cleaning or uncertainty.
+Poniższy przykład wykorzystuje niewielki syntetyczny zbiór danych regresyjnych.
+Zawiera on 120 równomiernie rozmieszczonych wartości wejściowych od -2 do 2, a
+wartości docelowe są generowane przez nieliniową funkcję
+$y = 0.4x^3 - x + 0.1$. Zbiór nie zawiera szumu, dzięki czemu przykład skupia
+się na przepływie pracy w YANN, a nie na czyszczeniu danych ani na niepewności.
 
-The evaluator reserves 20% of the observations for validation. Input and target
-scalers are fitted only on the training partition, and validation RMSE is
-reported in the original target scale.
+Moduł oceniający rezerwuje 20% obserwacji na walidację. Skalery wejścia i
+wartości docelowych są dopasowywane wyłącznie do zbioru treningowego, a
+walidacyjny błąd RMSE jest podawany w oryginalnej skali wartości docelowej.
 
 ```python
 import numpy as np
@@ -198,11 +213,13 @@ evaluator = ResamplingEvaluator(
 evaluation = evaluator.evaluate(X, Y)
 print("Validation RMSE:", evaluation.mean_validation_score("rmse"))
 ```
-A clean run produces output similar to:
+
+Prawidłowe uruchomienie daje wynik podobny do poniższego:
 
 ```text
 Validation RMSE: 0.126783
 ```
-## License
 
-YANN is available under the [MIT License](LICENSE).
+## Licencja
+
+YANN jest udostępniany na warunkach [licencji MIT](LICENSE).
