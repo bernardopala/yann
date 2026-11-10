@@ -198,7 +198,11 @@ evaluator = ResamplingEvaluator(
 evaluation = evaluator.evaluate(X, Y)
 print("Validation RMSE:", evaluation.mean_validation_score("rmse"))
 ```
+A clean run produces output similar to:
 
+```text
+Validation RMSE: 0.126783
+```
 ## License
 
 YANN is available under the [MIT License](LICENSE).
