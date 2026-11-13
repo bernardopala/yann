@@ -12,7 +12,11 @@ zamiennik produkcyjnego frameworka deep learning. Obecnie YANN koncentruje się
 na w pełni połączonych sieciach jednokierunkowych i wykonuje obliczenia na CPU
 za pośrednictwem NumPy.
 
-📖 [**→ Przejdź do kursu wprowadzajacego w YANN**](https://github.com/bernardopala/yann/blob/main/notebooks/yann_crash_course.ipynb) 
+## Kurs wprowadzający
+
+[**1. YANN: Budowanie i trenowanie sieci**](https://github.com/bernardopala/yann/blob/main/notebooks/yann_crash_course.ipynb)
+
+[**2. YANN: Walidacja i rzetelna ocena modelu**](https://github.com/bernardopala/yann/blob/main/notebooks/yann_evaluation.ipynb) 
 
 ## Dlaczego YANN?
 
