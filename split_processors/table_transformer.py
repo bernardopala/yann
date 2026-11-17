@@ -63,28 +63,6 @@ class TableTransformer:
 
         return result
 
-    def transform_for_scoring(self, values: np.ndarray) -> np.ndarray:
-        outputs = []
-
-        for spec in self.schema:
-            if spec.score_transformed:
-                output = self._transform_spec(values, spec)
-            else:
-                output = self._column(values, spec.index)
-                output = self._as_2d(output)
-            if output.shape[1] > 0:
-                outputs.append(output)
-
-        if not outputs:
-            raise ValueError("schema produced no scoring columns")
-
-        result = np.concatenate(outputs, axis=1)
-
-        if self.squeeze_single_output and result.shape[1] == 1:
-            return result[:, 0]
-
-        return result
-
     def inverse_transform(self, values: np.ndarray) -> np.ndarray:
         current_values = self._as_2d(values)
         if self.has_categorical_output:

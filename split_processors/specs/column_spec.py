@@ -8,4 +8,3 @@ from ..data_transformers import DataTransformer
 class ColumnSpec:
     index: int
     transformers: list[DataTransformer]
-    score_transformed: bool = False

@@ -163,6 +163,8 @@ from neural_network import NeuralNetwork
 from optimizers import Adam
 from split_processors import (
     ColumnSpec,
+    RegressionOutputSpec,
+    RegressionTargetSpec,
     StandardScaler,
     create_tabular_split_processor_factory,
 )
@@ -176,7 +178,9 @@ Y = (0.4 * X[:, 0] ** 3 - X[:, 0] + 0.1).astype(np.float32)
 
 processor_factory = create_tabular_split_processor_factory(
     x_schema=[ColumnSpec(0, [StandardScaler()])],
-    y_schema=[ColumnSpec(0, [StandardScaler()])],
+    target_spec=RegressionTargetSpec(
+        outputs=[RegressionOutputSpec([StandardScaler()])],
+    ),
 )
 
 
