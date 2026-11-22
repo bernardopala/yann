@@ -17,8 +17,10 @@ class TabularSplitProcessor(SplitProcessor):
             raise TypeError("target_spec must be a TargetSpec")
         self.x_transformer = TableTransformer(x_schema)
         self.target_adapter: TargetAdapter = target_spec.create_adapter()
+        self._is_prepared = False
 
     def prepare(self) -> PreparedSplit:
+        self._is_prepared = False
         self.x_transformer.fit(self._X_train)
         self.target_adapter.fit(self._Y_train)
 
@@ -28,7 +30,7 @@ class TabularSplitProcessor(SplitProcessor):
         X_validation = self.x_transformer.transform(self._X_validation)
         Y_validation_for_scoring = self.target_adapter.targets_for_scoring(self._Y_validation)
 
-        return PreparedSplit(
+        prepared_split = PreparedSplit(
             X_train=X_train,
             Y_train=Y_train,
             Y_train_for_scoring=Y_train_for_scoring,
@@ -37,6 +39,15 @@ class TabularSplitProcessor(SplitProcessor):
             input_size=X_train.shape[1],
             output_size=self.target_adapter.output_size,
         )
+        self._is_prepared = True
+        return prepared_split
+
+    def transform_features(self, values: np.ndarray) -> np.ndarray:
+        """Transform new raw feature rows using the train-fitted pipeline."""
+        if not self._is_prepared:
+            raise RuntimeError("processor must be prepared before transforming new features")
+
+        return self.x_transformer.transform(values)
 
     def predictions_for_scoring(self, predictions: np.ndarray) -> np.ndarray:
         return self.target_adapter.predictions_for_scoring(predictions)
