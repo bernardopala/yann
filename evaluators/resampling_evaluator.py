@@ -120,6 +120,10 @@ class ResamplingEvaluator(Evaluator):
                 training_result=training_result,
                 training_scores=training_scores,
                 scores=scores,
+                raw_train_size=len(train_indices),
+                raw_validation_size=len(validation_indices),
+                prepared_train_size=len(prepared_split.X_train),
+                prepared_validation_size=len(prepared_split.X_validation),
             )
 
             split_results.append(split_result)
@@ -132,8 +136,10 @@ class ResamplingEvaluator(Evaluator):
                     training_result=training_result,
                     training_scores=training_scores,
                     scores=scores,
-                    train_size=len(train_indices),
-                    validation_size=len(validation_indices),
+                    raw_train_size=len(train_indices),
+                    raw_validation_size=len(validation_indices),
+                    prepared_train_size=len(prepared_split.X_train),
+                    prepared_validation_size=len(prepared_split.X_validation),
                 ),
             )
 

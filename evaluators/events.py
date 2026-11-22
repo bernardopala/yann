@@ -16,22 +16,37 @@ class SplitEpochEndEvent:
 
 @dataclass(frozen=True)
 class SplitEndEvent:
+    """Summary emitted after one split has been trained and scored.
+
+    ``raw_*`` sizes count records selected by the splitter before preparation.
+    ``prepared_*`` sizes count samples actually passed to the model and metrics.
+    For time-series processors, prepared samples are windows.
+    """
+
     split_label: str
     split_index: int
     training_result: Any
     training_scores: dict[str, float]
     scores: dict[str, float]
-    train_size: int
-    validation_size: int
+    raw_train_size: int
+    raw_validation_size: int
+    prepared_train_size: int
+    prepared_validation_size: int
 
 
 @dataclass(frozen=True)
 class SplitResult:
+    """Final scores and size metadata for one evaluated split."""
+
     split_label: str
     split_index: int
     training_result: Any
     training_scores: dict[str, float]
     scores: dict[str, float]
+    raw_train_size: int
+    raw_validation_size: int
+    prepared_train_size: int
+    prepared_validation_size: int
 
 
 @dataclass(frozen=True)
