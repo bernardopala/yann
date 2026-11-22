@@ -51,22 +51,48 @@ class SplitResult:
 
 @dataclass(frozen=True)
 class EvaluationResult:
+    """Scores and descriptive split-level aggregates for one evaluation.
+
+    The aggregate methods below are macro-averages over splits: every split
+    contributes equally, regardless of its raw or prepared size. They are not
+    scores computed from pooled out-of-fold predictions. Standard deviations
+    describe the evaluated split scores and are not confidence intervals.
+    """
+
     splits: list[SplitResult]
 
     def scores(self, metric_name: str) -> np.ndarray:
+        """Return validation scores in split order."""
         return np.asarray([split.scores[metric_name] for split in self.splits], dtype=np.float64)
 
     def training_scores(self, metric_name: str) -> np.ndarray:
+        """Return training scores in split order."""
         return np.asarray([split.training_scores[metric_name] for split in self.splits], dtype=np.float64)
 
     def mean_validation_score(self, metric_name: str) -> float:
+        """Return the unweighted arithmetic mean across validation splits.
+
+        Each split has equal weight, independent of its validation size. This
+        is a macro-average over splits, not a pooled out-of-fold score.
+        """
         return float(np.mean(self.scores(metric_name)))
 
     def std_validation_score(self, metric_name: str) -> float:
-        return float(np.std(self.scores(metric_name)))
+        """Return population standard deviation across validation splits.
+
+        Uses ``ddof=0`` and describes split-to-split variability. It is not a
+        standard error or a confidence interval.
+        """
+        return float(np.std(self.scores(metric_name), ddof=0))
 
     def mean_training_score(self, metric_name: str) -> float:
+        """Return the unweighted arithmetic mean across training splits."""
         return float(np.mean(self.training_scores(metric_name)))
 
     def std_training_score(self, metric_name: str) -> float:
-        return float(np.std(self.training_scores(metric_name)))
+        """Return population standard deviation across training splits.
+
+        Uses ``ddof=0`` and describes split-to-split variability, not a
+        standard error or confidence interval.
+        """
+        return float(np.std(self.training_scores(metric_name), ddof=0))
