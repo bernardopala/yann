@@ -41,10 +41,13 @@ class BackpropagationTrainer:
         started_at = perf_counter()
         epochs_completed = 0
         average_loss : float | None = None
-        time_elapsed = perf_counter() - started_at
         sample_count = len(X)
 
-        while not self._should_stop(epochs_completed, time_elapsed, average_loss):
+        while not self._should_stop(
+            epochs_completed,
+            perf_counter() - started_at,
+            average_loss,
+        ):
             indices = self._prepare_indices(sample_count)
 
             for start in range(0, sample_count, self.options.batch_size):
@@ -56,15 +59,19 @@ class BackpropagationTrainer:
 
             epochs_completed += 1
             average_loss = self._compute_average_loss(network, X, Y)
-            time_elapsed = perf_counter() - started_at
+            event_elapsed = perf_counter() - started_at
 
             if self.observers:
-                event = EpochEndEvent(epoch=epochs_completed, loss=average_loss, elapsed_seconds=time_elapsed, snapshot=network.create_snapshot())
+                event = EpochEndEvent(epoch=epochs_completed, loss=average_loss, elapsed_seconds=event_elapsed, snapshot=network.create_snapshot())
 
                 for observer in self.observers:
                     observer.on_epoch_end(event)
 
-        return BackpropagationResult(average_loss, epochs_completed, time_elapsed)
+        return BackpropagationResult(
+            average_loss,
+            epochs_completed,
+            perf_counter() - started_at,
+        )
 
     def _compute_average_loss(self, network: NeuralNetwork, X: np.ndarray, Y: np.ndarray) -> float:
         return self.loss.value_batch(network.compute_outputs(X), Y)
